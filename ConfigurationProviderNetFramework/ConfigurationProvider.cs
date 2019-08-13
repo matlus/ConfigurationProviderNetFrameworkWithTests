@@ -14,27 +14,6 @@ namespace ConfigurationProviderNetFramework
             return ConfigurationManager.AppSettings[configurationSettingKey];
         }
 
-        protected override string GetConfigurationSettingValueThrowIfNotFound(string configurationSettingKey)
-        {
-            var valueAsConfigured = GetConfigurationSettingValue(configurationSettingKey);
-
-            EnsureConfigSettingIsPresent(valueAsConfigured, configurationSettingState =>
-            {
-                switch (configurationSettingState)
-                {
-                    case ConfigurationSettingState.IsNull:
-                        return new ConfigurationErrorsException($"The AppSettings Key: {configurationSettingKey} is Missing in the configuration file. This setting is a Required setting");
-                    case ConfigurationSettingState.IsWhiteSpaces:
-                        return new ConfigurationErrorsException($"The value of AppSettings Key: {configurationSettingKey} in the configuration file is Blank (only spaces). This setting is a Required setting");
-                    case ConfigurationSettingState.IsEmpty:
-                    default:
-                        return new ConfigurationErrorsException($"The value of AppSettings Key: {configurationSettingKey} in the configuration file is Empty. This setting is a Required setting");
-                }
-            });
-
-            return valueAsConfigured;
-        }
-
         protected override DbConnectionInformation GetDbConnectionInformationCore(string connectionStringName)
         {
             var connectionStringSection = ConfigurationManager.ConnectionStrings[connectionStringName];

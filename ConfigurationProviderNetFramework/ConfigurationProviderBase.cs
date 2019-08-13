@@ -116,6 +116,35 @@ namespace ConfigurationProviderNetFramework
             }
         }
 
+        /// <summary>
+        /// Properties that are NOT Optional should call this method to get the value from the config
+        /// location. This method in turn calls the abstract method (that descendants will implement) that actually
+        /// retrieves the configuration setting value from the configuration source.
+        /// This method throws an exception with the proper exception message indicating the missing configuration setting
+        /// </summary>
+        /// <param name="configurationSettingKey">The Configuration Setting Key</param>
+        /// <returns>The Configuration Setting Value</returns>
+        protected string GetConfigurationSettingValueThrowIfNotFound(string configurationSettingKey)
+        {
+            var valueAsConfigured = GetConfigurationSettingValue(configurationSettingKey);
+
+            EnsureConfigSettingIsPresent(valueAsConfigured, configurationSettingState =>
+            {
+                switch (configurationSettingState)
+                {
+                    case ConfigurationSettingState.IsNull:
+                        return new ConfigurationErrorsException($"The AppSettings Key: {configurationSettingKey} is Missing in the configuration file. This setting is a Required setting");
+                    case ConfigurationSettingState.IsWhiteSpaces:
+                        return new ConfigurationErrorsException($"The value of AppSettings Key: {configurationSettingKey} in the configuration file is White Spaces. This setting is a Required setting");
+                    case ConfigurationSettingState.IsEmpty:
+                    default:
+                        return new ConfigurationErrorsException($"The value of AppSettings Key: {configurationSettingKey} in the configuration file is Empty. This setting is a Required setting");
+                }
+            });
+
+            return valueAsConfigured;
+        }
+
         private static DateTime EnsureConfiguredFiscalYearStartIsValidDate(string fiscalYearStartAsConfigured)
         {
             if (string.IsNullOrWhiteSpace(fiscalYearStartAsConfigured))
@@ -132,26 +161,36 @@ namespace ConfigurationProviderNetFramework
         {
             var configurationSettingState = ConfigurationSettingState.IsPresent;
 
-            if (string.IsNullOrWhiteSpace(configurationValue))
+            if (configurationValue == null)
             {
-                if (configurationValue == null)
-                {
-                    configurationSettingState = ConfigurationSettingState.IsNull;
-                }
-                else
-                {
-                    configurationSettingState = ConfigurationSettingState.IsWhiteSpaces;
-                }
+                configurationSettingState = ConfigurationSettingState.IsNull;
             }
             else if (configurationValue.Length == 0)
             {
                 configurationSettingState = ConfigurationSettingState.IsEmpty;
+            }
+            else if (IsWhiteSpaces(configurationValue))
+            {
+                configurationSettingState = ConfigurationSettingState.IsWhiteSpaces;
             }
 
             if (configurationSettingState != ConfigurationSettingState.IsPresent)
             {
                 throw exceptionCallback(configurationSettingState);
             }
+        }
+
+        private static bool IsWhiteSpaces(string value)
+        {
+            for (int i = 0; i < value.Length; i++)
+            {
+                if (Char.IsWhiteSpace(value[i]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         protected static void EnsureProviderNameIsPresent(string connectionStringName, string providerName)
@@ -161,7 +200,7 @@ namespace ConfigurationProviderNetFramework
                 switch (configurationSettingState)
                 {
                     case ConfigurationSettingState.IsWhiteSpaces:
-                        return new ConfigurationErrorsException($"The value of the providerName attribute for ConnectionString setting Name: {connectionStringName} is Blank (only spaces). This setting is a Required setting");
+                        return new ConfigurationErrorsException($"The value of the providerName attribute for ConnectionString setting Name: {connectionStringName} is White spaces. This setting is a Required setting");
                     case ConfigurationSettingState.IsEmpty:
                     default:
                         return new ConfigurationErrorsException($"The value of the providerName attribute for ConnectionString setting Name: {connectionStringName} is Empty. This setting is a Required setting");
@@ -176,22 +215,13 @@ namespace ConfigurationProviderNetFramework
                 switch (configurationSettingState)
                 {
                     case ConfigurationSettingState.IsWhiteSpaces:
-                        return new ConfigurationErrorsException($"The value of the connectionString attribute for ConnectionString setting Name: {connectionStringName} is Blank (only spaces). This setting is a Required setting");
+                        return new ConfigurationErrorsException($"The value of the connectionString attribute for ConnectionString setting Name: {connectionStringName} is White spaces. This setting is a Required setting");
                     case ConfigurationSettingState.IsEmpty:
                     default:
                         return new ConfigurationErrorsException($"The value of the connectionString attribute for ConnectionString setting Name: {connectionStringName} is Empty. This setting is a Required setting");
                 }
             });
         }
-
-        /// <summary>
-        /// Specialized Properties can call this method in Descendant's when configuration settings
-        /// are NOT optional. Decendant's can implement this method in such as way that their implementation
-        /// throws an exception with the proper exception message indicating the missing configuration setting
-        /// </summary>
-        /// <param name="configurationSettingKey">The Configuration Setting Key</param>
-        /// <returns>The Configuration Setting Value</returns>
-        protected abstract string GetConfigurationSettingValueThrowIfNotFound(string configurationSettingKey);
 
         /// <summary>
         /// Specialized Properties can call this method in Descendant's when configuration settings are optional
